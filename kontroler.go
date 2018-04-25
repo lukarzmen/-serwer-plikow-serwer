@@ -1,21 +1,29 @@
 package main
 
 import (
-	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"mime"
 )
 
 func (s Serwer) uploadHandler(w http.ResponseWriter, r *http.Request) {
-	file, err := os.Create("./result")
-	if err != nil {
-		panic(err)
+	contentDisposition := r.Header.Get("Content-Disposition")
+	_, params, err := mime.ParseMediaType(contentDisposition)
+	if err != nil{
+		return
 	}
-	n, err := io.Copy(file, r.Body)
-	if err != nil {
-		panic(err)
-	}
+	nazwaPliku := params["filename"]
+	nazwaUzytkownika := params["username"]
 
-	w.Write([]byte(fmt.Sprintf("%d bytes are recieved.\n", n)))
+	file, err := os.Create("./Repozytorium/" + nazwaUzytkownika + "/" + nazwaPliku)
+	defer file.Close()
+	if err != nil {
+		panic(err)
+	}
+	_, err = io.Copy(file, r.Body)
+	if err != nil {
+		panic(err)
+	}
+	//w.Write([]byte(fmt.Sprintf("%d bytes are recieved.\n", n)))
 }
