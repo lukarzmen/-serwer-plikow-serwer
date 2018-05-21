@@ -1,23 +1,49 @@
 package main
 
 import (
-	"net/http"
-
 	"github.com/gorilla/mux"
+	"net/http"
+	"fmt"
+	"time"
 )
 
+type PlikUploadowany struct {
+	PlikUzytkownika chan PlikUzytkownika
+	KanalZwalnajacy chan bool
+}
+
+var KolejkaPlikowDlaUzytkownikow map[string]PlikUploadowany
+
 func main() {
-	serwer := Serwer{
-		NazwaKlienta:                "lmedyk",                //os.Getenv("NAZWA_KLIENTA"),
-		SciezkaDoFolderuUzytkownika: "/Users/lmedyk/Desktop", //os.Getenv("SCIEZKA"),
-	}
+	KolejkaPlikowDlaUzytkownikow = make(map[string]PlikUploadowany)
+
 	router := mux.NewRouter()
 	router.
 		Path("/upload").
 		Methods("POST").
-		HandlerFunc(serwer.uploadHandler)
-	err := http.ListenAndServe(":80", router)
-	if err != nil {
+		HandlerFunc(uploadHandler)
 
+	go func() {
+		for {
+			for _, plikDoUploadowania := range KolejkaPlikowDlaUzytkownikow {
+				if len(plikDoUploadowania.PlikUzytkownika) == 0{
+					continue
+				}
+				select {
+				case <-time.After(time.Minute):
+					fmt.Println("Czas minal")
+				case plikUzytkownika := <-plikDoUploadowania.PlikUzytkownika:
+					go func() {
+						kopiujNaDysk(plikUzytkownika)
+						<-plikDoUploadowania.KanalZwalnajacy
+					}()
+				}
+			}
+		}
+	}()
+
+	err := http.ListenAndServe(":82", router)
+	if err != nil {
+		fmt.Println("Nie można utworzyć serwera")
 	}
 }
